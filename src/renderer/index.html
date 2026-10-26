@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AirPrintWin</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="app-header">
+    <div class="brand">
+        <div class="brand-icon">🖨️</div>
+        <div>
+            <h1>AirPrintWin</h1>
+            <p class="subtitle">Локальный AirPrint / IPP-сервер</p>
+        </div>
+    </div>
+    <div id="statusBadge" class="badge badge-idle">Не запущен</div>
+</header>
+
+<main class="content">
+    <section class="card">
+        <h2>Настройки</h2>
+
+        <label for="printerSelect">Принтер Windows</label>
+        <div class="row">
+            <select id="printerSelect"></select>
+            <button id="refreshBtn" class="btn-icon" title="Обновить">⟳</button>
+        </div>
+
+        <label for="displayName">Имя в сети (как увидит iPhone)</label>
+        <input id="displayName" type="text" value="AirPrintWin" maxlength="40" />
+
+        <div class="actions">
+            <button id="startBtn" class="btn btn-primary">▶ Запустить</button>
+            <button id="stopBtn" class="btn btn-secondary" disabled>■ Остановить</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h2>Журнал</h2>
+            <button id="clearLogBtn" class="btn-link">Очистить</button>
+        </div>
+        <div id="log" class="log"></div>
+    </section>
+</main>
+
+<script src="renderer.js"></script>
+</body>
+</html>
