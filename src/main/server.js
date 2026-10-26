@@ -2,6 +2,24 @@
 const { publishPrinter } = require('../lib/mdns');
 const { startIppServer } = require('../lib/ipp-server');
 const { detectLocalIp } = require('../lib/net');
+const { detectCapabilities } = require('../lib/printer-caps');
+
+// Валидация displayName (defense in depth — UI уже валидирует)
+function validateDisplayName(raw) {
+    const name = String(raw || '').trim();
+
+    if (name.length === 0) {
+        throw new Error('Имя в сети не может быть пустым');
+    }
+    if (name.length > 63) {
+        throw new Error('Имя в сети не может быть длиннее 63 символов');
+    }
+    if (/[\\/.\0@"\x00-\x1f]/.test(name)) {
+        throw new Error('Имя в сети не может содержать \\ / . " @ или управляющие символы');
+    }
+
+    return name;
+}
 
 class AirPrintService {
     constructor() {
@@ -22,7 +40,8 @@ class AirPrintService {
 
         this.state = 'starting';
 
-        const name = displayName || printerName || 'AirPrintWin';
+        const rawName = displayName || printerName || 'AirPrintWin';
+        const name = validateDisplayName(rawName);
 
         const localIp = detectLocalIp();
         if (!localIp) {
@@ -31,6 +50,9 @@ class AirPrintService {
         }
         this.localIp = localIp;
 
+        const caps = detectCapabilities(printerName);
+        this.caps = caps;
+
         return new Promise((resolve, reject) => {
             try {
                 this.ippServer = startIppServer({
@@ -38,6 +60,7 @@ class AirPrintService {
                     targetPrinter: printerName,
                     displayName: name,
                     localIp,
+                    caps,
                     onEvent
                 });
 
@@ -48,9 +71,9 @@ class AirPrintService {
 
                 this.ippServer.once('listening', () => {
                     try {
-                        this.mdnsHandle = publishPrinter({ name, port, localIp });
+                        this.mdnsHandle = publishPrinter({ name, port, localIp, caps });
                         this.state = 'running';
-                        resolve({ printerName, displayName: name, port, localIp });
+                        resolve({ printerName, displayName: name, port, localIp, caps });
                     } catch (e) {
                         this.state = 'error';
                         reject(e);

@@ -20,7 +20,20 @@ function logRawResponse(label, buf) {
     console.log('==============================================\n');
 }
 
-function buildPrinterAttrs(localIp, port = SERVICE_PORT, displayName = PRINTER_NAME) {
+function buildPrinterAttrs(localIp, port = SERVICE_PORT, displayName = PRINTER_NAME, caps = {}) {
+    const color = !!caps.color;
+    const duplex = !!caps.duplex;
+    const mediaDefault = caps.mediaDefault || 'iso_a4_210x297mm';
+
+    // Если mediaDefault не входит в базовый список — добавляем первым
+    const baseMedia = [
+        'iso_a4_210x297mm',
+        'na_letter_8.5x11in',
+        'iso_a5_148x210mm',
+        'iso_a6_105x148mm',
+    ];
+    const mediaList = [mediaDefault, ...baseMedia.filter((m) => m !== mediaDefault)];
+
     return {
         // === URI — ДОЛЖЕН совпадать с mDNS (rp=ipp/print + hostname из mDNS) ===
         'printer-uri-supported': { tag: 0x45, value: `ipp://${localIp}:${port}/ipp/print` },
@@ -57,24 +70,22 @@ function buildPrinterAttrs(localIp, port = SERVICE_PORT, displayName = PRINTER_N
         'document-format-default': { tag: 0x49, value: 'application/pdf' },
 
         // === Color (boolean) ===
-        'color-supported': false,
+        'color-supported': color,
 
         // === Sides ===
-        'sides-supported': 'one-sided',
-        'sides-default': 'one-sided',
+        'sides-supported': duplex
+            ? [
+                { tag: 0x44, value: 'one-sided' },
+                { tag: 0x44, value: 'two-sided-long-edge' },
+                { tag: 0x44, value: 'two-sided-short-edge' },
+            ]
+            : 'one-sided',
+        'sides-default': duplex ? 'two-sided-long-edge' : 'one-sided',
 
         // === Media ===
-        'media-supported': [
-            { tag: 0x44, value: 'iso_a4_210x297mm' },
-            { tag: 0x44, value: 'na_letter_8.5x11in' },
-            { tag: 0x44, value: 'iso_a5_148x210mm' },
-            { tag: 0x44, value: 'iso_a6_105x148mm' },
-        ],
-        'media-default': 'iso_a4_210x297mm',
-        'media-ready': [
-            { tag: 0x44, value: 'iso_a4_210x297mm' },
-            { tag: 0x44, value: 'na_letter_8.5x11in' },
-        ],
+        'media-supported': mediaList.map((m) => ({ tag: 0x44, value: m })),
+        'media-default': mediaDefault,
+        'media-ready': mediaList.map((m) => ({ tag: 0x44, value: m })),
         'media-col-supported': [
             { tag: 0x44, value: 'media-size' },
             { tag: 0x44, value: 'media-type' },
@@ -136,7 +147,7 @@ function buildPrinterAttrs(localIp, port = SERVICE_PORT, displayName = PRINTER_N
     };
 }
 
-function startIppServer({ port = SERVICE_PORT, targetPrinter, displayName, localIp, onEvent } = {}) {
+function startIppServer({ port = SERVICE_PORT, targetPrinter, displayName, localIp, caps, onEvent } = {}) {
     if (!localIp) localIp = detectLocalIp();
     if (!localIp) {
         throw new Error('[IPP] Не удалось определить IPv4-адрес активного интерфейса');
@@ -198,7 +209,7 @@ function startIppServer({ port = SERVICE_PORT, targetPrinter, displayName, local
             try {
                 switch (parsed.op) {
                     case OP.GET_PRINTER_ATTRIBUTES: {
-                        const attrs = buildPrinterAttrs(localIp, port, name);
+                        const attrs = buildPrinterAttrs(localIp, port, name, caps);
 
                         const resp = buildIppResponse({
                             requestId: parsed.requestId,
