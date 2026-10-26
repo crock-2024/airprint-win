@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.log
 .idea/
+# отладочные скрипты (не для репо)
+query_brother.js
+test-*.js
+*-debug.js
