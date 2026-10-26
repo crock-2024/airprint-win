@@ -8,7 +8,11 @@ const els = {
     refreshBtn: document.getElementById('refreshBtn'),
     clearLogBtn: document.getElementById('clearLogBtn'),
     statusBadge: document.getElementById('statusBadge'),
-    log: document.getElementById('log')
+    log: document.getElementById('log'),
+    capsInfo: document.getElementById('capsInfo'),
+    capsColor: document.getElementById('capsColor'),
+    capsDuplex: document.getElementById('capsDuplex'),
+    capsMedia: document.getElementById('capsMedia')
 };
 
 // --- Валидация имени в сети ---
@@ -61,6 +65,64 @@ function setRunning(running) {
     els.displayName.disabled = running;
 }
 
+// --- Отображение возможностей принтера ---
+function renderCaps(caps) {
+    if (!caps) {
+        els.capsInfo.style.display = 'none';
+        return;
+    }
+
+    els.capsInfo.style.display = 'flex';
+
+    // Цвет
+    els.capsColor.textContent = `Цвет: ${caps.color ? 'да' : 'нет'}`;
+    els.capsColor.className = 'caps-badge ' + (caps.color ? 'ok' : 'off');
+
+    // Duplex
+    els.capsDuplex.textContent = `Duplex: ${caps.duplex ? 'да' : 'нет'}`;
+    els.capsDuplex.className = 'caps-badge ' + (caps.duplex ? 'ok' : 'off');
+
+    // Бумага
+    const mediaMap = {
+        'iso_a4_210x297mm': 'A4',
+        'na_letter_8.5x11in': 'Letter',
+        'iso_a5_148x210mm': 'A5',
+        'iso_a6_105x148mm': 'A6',
+        'iso_a3_297x420mm': 'A3',
+        'na_legal_8.5x14in': 'Legal',
+        'na_index-4x6_4x6in': '4×6"',
+        'om_small-photo_100x150mm': '100×150',
+    };
+    const mediaName = mediaMap[caps.mediaDefault] || caps.mediaDefault;
+    els.capsMedia.textContent = `Бумага: ${mediaName}`;
+    els.capsMedia.className = 'caps-badge ' + (caps.detected ? 'ok' : 'warn');
+}
+
+async function refreshCaps() {
+    const printer = els.select.value;
+    if (!printer) {
+        renderCaps(null);
+        return;
+    }
+
+    els.capsColor.textContent = 'Цвет: …';
+    els.capsDuplex.textContent = 'Duplex: …';
+    els.capsMedia.textContent = 'Бумага: …';
+    els.capsColor.className = 'caps-badge';
+    els.capsDuplex.className = 'caps-badge';
+    els.capsMedia.className = 'caps-badge';
+    els.capsInfo.style.display = 'flex';
+
+    try {
+        const caps = await window.api.detectCaps(printer);
+        renderCaps(caps);
+        log(`Возможности: цвет=${caps.color ? 'да' : 'нет'}, duplex=${caps.duplex ? 'да' : 'нет'}, бумага=${caps.mediaDefault}`);
+    } catch (e) {
+        renderCaps(null);
+        log(`Не удалось определить возможности: ${e.message}`, 'warn');
+    }
+}
+
 // --- Загрузка принтеров ---
 
 async function refreshPrinters() {
@@ -82,10 +144,45 @@ async function refreshPrinters() {
             )
             .join('');
         log(`Загружено принтеров: ${printers.length}`);
+
+        await applyConfig();
+        await refreshCaps();
+
     } catch (e) {
         log(`Ошибка получения принтеров: ${e.message}`, 'err');
     } finally {
         els.select.disabled = false;
+    }
+}
+
+// --- Загрузка настроек из config.json ---
+async function applyConfig() {
+    try {
+        const cfg = await window.api.getConfig();
+        if (cfg.displayName) {
+            els.displayName.value = cfg.displayName;
+        }
+        if (cfg.printerName) {
+            const exists = [...els.select.options].some((o) => o.value === cfg.printerName);
+            if (exists) {
+                els.select.value = cfg.printerName;
+            }
+        }
+        log(`Настройки загружены: принтер="${cfg.printerName || '—'}", имя="${cfg.displayName}"`);
+    } catch (e) {
+        log(`Не удалось загрузить настройки: ${e.message}`, 'warn');
+    }
+}
+
+// --- Сохранение текущих настроек ---
+async function saveCurrentConfig() {
+    try {
+        await window.api.setConfig({
+            displayName: els.displayName.value.trim(),
+            printerName: els.select.value,
+        });
+    } catch (e) {
+        log(`Не удалось сохранить настройки: ${e.message}`, 'warn');
     }
 }
 
@@ -120,6 +217,7 @@ async function startServer() {
     setStatus('starting', 'Запуск…');
     log(`Запуск: принтер="${printer}", имя в сети="${displayName}"`);
 
+    await saveCurrentConfig();
     const res = await window.api.startServer({ printerName: printer, displayName });
 
     if (res.ok) {
@@ -181,6 +279,11 @@ els.refreshBtn.addEventListener('click', refreshPrinters);
 els.clearLogBtn.addEventListener('click', () => {
     els.log.innerHTML = '';
 });
+els.select.addEventListener('change', async () => {
+    await refreshCaps();
+    await saveCurrentConfig();
+});
+els.displayName.addEventListener('blur', saveCurrentConfig);
 
 setRunning(false);
 refreshPrinters();

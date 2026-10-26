@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const { listPrinters } = require('../lib/printer');
 const { AirPrintService } = require('./server');
+const config = require('./config');
 
 const service = new AirPrintService();
 let mainWindow = null;
@@ -42,6 +43,19 @@ app.on('window-all-closed', () => {
 // --- IPC ---
 
 ipcMain.handle('printers:list', async () => listPrinters());
+
+ipcMain.handle('config:get', () => config.load());
+
+ipcMain.handle('config:set', (_e, patch) => config.save(patch));
+
+ipcMain.handle('printer:caps', async (_e, printerName) => {
+    try {
+        const { detectCapabilities } = require('../lib/printer-caps');
+        return detectCapabilities(printerName);
+    } catch (e) {
+        return { color: false, duplex: false, mediaDefault: 'iso_a4_210x297mm', detected: false, error: e.message };
+    }
+});
 
 ipcMain.handle('server:state', () => ({ state: service.state }));
 
