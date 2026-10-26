@@ -39,54 +39,38 @@ function detectCapabilities(printerName) {
         return caps;
     }
 
-    const safeName = String(printerName).replace(/'/g, "''"); // escape single quotes for PS
+    const safeName = String(printerName).replace(/'/g, "''");
 
-    // --- 1. Color + Duplex ---
+    // Единственный источник правды: Get-PrintConfiguration (Windows 8+)
+    // Возвращает Color, DuplexingMode, PaperSize за один вызов.
     try {
-        const psScript = `
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class WinSpool {
-    [DllImport("winspool.drv", CharSet=CharSet.Auto, SetLastError=true)]
-    public static extern int DeviceCapabilities(string pDevice, string pPort, short fwCapability, IntPtr pOutput, IntPtr pDevMode);
-}
-"@
-$color  = [WinSpool]::DeviceCapabilities('${safeName}', $null, ${DC_COLORDEVICE}, [IntPtr]::Zero, [IntPtr]::Zero)
-$duplex = [WinSpool]::DeviceCapabilities('${safeName}', $null, ${DC_DUPLEX}, [IntPtr]::Zero, [IntPtr]::Zero)
-@{ Color = $color; Duplex = $duplex } | ConvertTo-Json -Compress
-`;
-        const out = runPowerShell(psScript);
+        const ps = `
+                            $p = Get-Printer -Name '${safeName}' -ErrorAction Stop
+                            $cfg = $p | Get-PrintConfiguration -ErrorAction Stop
+                            @{
+                                Color = [bool]$cfg.Color
+                                Duplex = ($cfg.DuplexingMode -ne 'OneSided')
+                                PaperSize = [string]$cfg.PaperSize
+                            } | ConvertTo-Json -Compress
+                            `;
+        const out = runPowerShell(ps);
         const result = JSON.parse(out.trim());
-        caps.color = result.Color === 1;
-        caps.duplex = result.Duplex === 1;
+
+        caps.color = result.Color === true;
+        caps.duplex = result.Duplex === true;
         caps.detected = true;
-        console.log(`[caps] Win32: color=${caps.color}, duplex=${caps.duplex}`);
-    } catch (e) {
-        console.warn('[caps] Win32 detection failed:', e.message);
-    }
 
-    // --- 2. mediaDefault ---
-    try {
-        const psScript = `
-$p = Get-Printer -Name '${safeName}' -ErrorAction Stop
-$cfg = $p | Get-PrintConfiguration -ErrorAction Stop
-$cfg.PaperSize
-`;
-        const paperSize = runPowerShell(psScript).trim();
-
-        if (paperSize && PAPER_SIZES[paperSize]) {
-            caps.mediaDefault = PAPER_SIZES[paperSize];
-            console.log(`[caps] PaperSize="${paperSize}" -> ${caps.mediaDefault}`);
-        } else if (paperSize) {
-            console.log(`[caps] Unknown PaperSize "${paperSize}", keeping default`);
+        if (result.PaperSize && PAPER_SIZES[result.PaperSize]) {
+            caps.mediaDefault = PAPER_SIZES[result.PaperSize];
         }
-    } catch (e) {
-        console.warn('[caps] PaperSize detection failed:', e.message);
-    }
 
-    // --- 3. Fallback ---
-    if (!caps.detected) {
+        console.log(
+            `[caps] Config: color=${caps.color}, duplex=${caps.duplex}, paper=${result.PaperSize} -> ${caps.mediaDefault}`
+        );
+    } catch (e) {
+        console.warn('[caps] Get-PrintConfiguration failed:', e.message);
+
+        // Fallback по локали
         const locale = process.env.LANG || process.env.LC_ALL || Intl.DateTimeFormat().resolvedOptions().locale || 'en-US';
         caps.mediaDefault = locale.startsWith('en-US') || locale.startsWith('en-CA')
             ? 'na_letter_8.5x11in'
