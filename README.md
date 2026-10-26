@@ -30,7 +30,7 @@ npm start
 
 ## Сборка .exe (для разработчиков)
 npm run dist
-#### Результат: dist/AirPrintBridge-Setup.exe
+#### Результат: dist/AirPrintWin-Setup-1.0.0.exe
 ````
 ⚠️ .exe не подписан — Windows SmartScreen может блокировать.
 Используй npm start, если не доверяешь.

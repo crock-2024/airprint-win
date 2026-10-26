@@ -21,6 +21,7 @@
   "build": {
     "appId": "com.local.airprintwin",
     "productName": "AirPrintWin",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
       "output": "dist"
     },
