@@ -1,4 +1,7 @@
 # AirPrintWin
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org/)
+[![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 
 AirPrint / IPP Everywhere сервер для Windows. Превращает любой Windows-принтер
 в AirPrint-совместимый для iPhone, iPad, Mac — без покупки нового принтера.
@@ -142,4 +145,5 @@ src/
 ```
 
 ## Лицензия
-MIT — см. [LICENSE](LICENSE).
+Этот проект распространяется под лицензией **MIT**.
+Полный текст — в файле [LICENSE](LICENSE).
