@@ -142,4 +142,4 @@ src/
 ```
 
 ## Лицензия
-MIT — см. LICENSE.
+MIT — см. [LICENSE](LICENSE).
