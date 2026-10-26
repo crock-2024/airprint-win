@@ -29,7 +29,9 @@
         </div>
 
         <label for="displayName">Имя в сети (как увидит iPhone)</label>
-        <input id="displayName" type="text" value="AirPrintWin" maxlength="40" />
+        <input id="displayName" type="text" value="AirPrintWin" maxlength="63"
+               placeholder="Например: Home Printer" />
+        <p class="hint">1-63 символа, без <code>\ / . " @</code></p>
 
         <div class="actions">
             <button id="startBtn" class="btn btn-primary">▶ Запустить</button>

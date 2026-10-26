@@ -11,6 +11,26 @@ const els = {
     log: document.getElementById('log')
 };
 
+// --- Валидация имени в сети ---
+function validateDisplayName(raw) {
+    const name = String(raw || '').trim();
+
+    if (name.length === 0) {
+        return { ok: false, error: 'Имя не может быть пустым' };
+    }
+    if (name.length > 63) {
+        return { ok: false, error: 'Имя не может быть длиннее 63 символов' };
+    }
+    if (/[\\/.\0@"\x00-\x1f]/.test(name)) {
+        return { ok: false, error: 'Имя не может содержать \\ / . " @ или управляющие символы' };
+    }
+    if (name.startsWith(' ') || name.endsWith(' ')) {
+        return { ok: false, error: 'Имя не может начинаться или заканчиваться пробелом' };
+    }
+
+    return { ok: true, name };
+}
+
 // --- Утилиты UI ---
 
 function setStatus(kind, text) {
@@ -86,7 +106,16 @@ async function startServer() {
         log('Не выбран принтер', 'warn');
         return;
     }
-    const displayName = els.displayName.value.trim() || 'AirPrintWin';
+
+    const rawName = els.displayName.value;
+    const validation = validateDisplayName(rawName);
+    if (!validation.ok) {
+        setStatus('error', '● Ошибка');
+        log(`Некорректное имя в сети: ${validation.error}`, 'err');
+        els.displayName.focus();
+        return;
+    }
+    const displayName = validation.name;
 
     setStatus('starting', 'Запуск…');
     log(`Запуск: принтер="${printer}", имя в сети="${displayName}"`);

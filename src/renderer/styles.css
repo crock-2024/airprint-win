@@ -287,3 +287,15 @@ input:focus {
 .content::-webkit-scrollbar-track {
     background: transparent;
 }
+
+.hint {
+    font-size: 11px;
+    color: var(--fg-muted);
+    margin-top: 4px;
+}
+.hint code {
+    background: var(--bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+}
