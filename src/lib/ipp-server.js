@@ -3,11 +3,11 @@ const http = require('http');
 const { parseIppRequest, buildIppResponse, OP, STATUS } = require('./ipp-parser');
 const { printPdf } = require('./printer');
 const {
-    PRINTER_UUID,
     PRINTER_NAME,
     SERVICE_PORT,
-    HOSTNAME,      // ← импорт
-    HOST_FQDN,     // ← импорт
+    HOSTNAME,
+    HOST_FQDN,
+    uuidFromName,
 } = require('./mdns');
 const { detectLocalIp } = require('./net');
 
@@ -20,7 +20,7 @@ function logRawResponse(label, buf) {
     console.log('==============================================\n');
 }
 
-function buildPrinterAttrs(localIp, port = SERVICE_PORT) {
+function buildPrinterAttrs(localIp, port = SERVICE_PORT, displayName = PRINTER_NAME) {
     return {
         // === URI — ДОЛЖЕН совпадать с mDNS (rp=ipp/print + hostname из mDNS) ===
         'printer-uri-supported': { tag: 0x45, value: `ipp://${localIp}:${port}/ipp/print` },
@@ -28,10 +28,10 @@ function buildPrinterAttrs(localIp, port = SERVICE_PORT) {
         'uri-authentication-supported': 'none',
 
         // === Identity ===
-        'printer-name': { tag: 0x42, value: PRINTER_NAME },
-        'printer-info': { tag: 0x41, value: 'AirPrintWin virtual printer' },
+        'printer-name': { tag: 0x42, value: displayName },
+        'printer-info': { tag: 0x41, value: `${displayName} via AirPrintWin` },
         'printer-location': { tag: 0x41, value: 'Local' },
-        'printer-make-and-model': { tag: 0x41, value: 'AirPrintWin IPP Everywhere' },
+        'printer-make-and-model': { tag: 0x41, value: displayName },
 
         // === AirPrint ===
         'ipp-features-supported': 'airprint-1.8',
@@ -42,7 +42,7 @@ function buildPrinterAttrs(localIp, port = SERVICE_PORT) {
         'printer-is-accepting-jobs': true,
 
         // === UUID ===
-        'printer-uuid': { tag: 0x45, value: `urn:uuid:${PRINTER_UUID}` },
+        'printer-uuid': { tag: 0x45, value: `urn:uuid:${uuidFromName(displayName)}` },
         'printer-more-info': { tag: 0x45, value: `http://${localIp}:${port}/` },
 
         // === Formats ===
@@ -136,13 +136,16 @@ function buildPrinterAttrs(localIp, port = SERVICE_PORT) {
     };
 }
 
-function startIppServer({ port = SERVICE_PORT, targetPrinter, localIp, onEvent } = {}) {
+function startIppServer({ port = SERVICE_PORT, targetPrinter, displayName, localIp, onEvent } = {}) {
     if (!localIp) localIp = detectLocalIp();
     if (!localIp) {
         throw new Error('[IPP] Не удалось определить IPv4-адрес активного интерфейса');
     }
 
+    const name = displayName || targetPrinter || PRINTER_NAME;
+
     const emit = (type, payload = {}) => {
+
         console.log(`[event] ${type}`, payload);
         if (typeof onEvent === 'function') onEvent({ type, ...payload });
     };
@@ -195,7 +198,7 @@ function startIppServer({ port = SERVICE_PORT, targetPrinter, localIp, onEvent }
             try {
                 switch (parsed.op) {
                     case OP.GET_PRINTER_ATTRIBUTES: {
-                        const attrs = buildPrinterAttrs(localIp, port);
+                        const attrs = buildPrinterAttrs(localIp, port, name);
 
                         const resp = buildIppResponse({
                             requestId: parsed.requestId,

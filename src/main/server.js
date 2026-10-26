@@ -22,6 +22,8 @@ class AirPrintService {
 
         this.state = 'starting';
 
+        const name = displayName || printerName || 'AirPrintWin';
+
         const localIp = detectLocalIp();
         if (!localIp) {
             this.state = 'error';
@@ -34,6 +36,7 @@ class AirPrintService {
                 this.ippServer = startIppServer({
                     port,
                     targetPrinter: printerName,
+                    displayName: name,
                     localIp,
                     onEvent
                 });
@@ -45,9 +48,9 @@ class AirPrintService {
 
                 this.ippServer.once('listening', () => {
                     try {
-                        this.mdnsHandle = publishPrinter({ name: displayName, port, localIp });
+                        this.mdnsHandle = publishPrinter({ name, port, localIp });
                         this.state = 'running';
-                        resolve({ printerName, displayName, port, localIp });
+                        resolve({ printerName, displayName: name, port, localIp });
                     } catch (e) {
                         this.state = 'error';
                         reject(e);
